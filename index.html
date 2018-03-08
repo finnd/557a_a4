@@ -260,21 +260,6 @@
           .enter()
           .append("g")
 
-        var year_labels = groups
-          .selectAll(".timeline-label")
-          .data(function(d){return [d];})
-          .enter()
-          .append("text")
-          .attr("class", "timeline-label")
-          .attr("x", function(y){
-            var val = 10 + node_dist*yearIndexes(y);
-            return val;
-          })
-          .attr("y", function(){
-          	return TL_height/2 + node_dist*2/5 + 20;
-          })
-          .text(function(y){return y});
-
         var rects = groups
           .selectAll(".rectYearSelector")
           .data(function(d){return [d];})
