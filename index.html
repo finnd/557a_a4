@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Interactive Electoral Map </title>
+	<script src="https://d3js.org/d3.v4.js"></script>
+	<script src="map_coords.js"></script>
+	<script src="map_lib.js"></script>
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.js"></script>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1></h1>
+  </header>
+  <section>
+  	<h2> Years 1940 - 2016 </h2>
+    <div class="yearselector"></div>
+  </section>
+  <section>
+    <h2>Scale</h2>
+      <div class="color-scale"></div>
+    </section>
+
+    <section>
+      <h2 id="usmap-label"></h2>
+      <div class="usmap"></div>
+    </section>
+
+    <script type="text/javascript">
+
+    var margin_left = 15;
+	var margin_right = 15;
+	var margin_top = 20;
+	var margin_bottom = 20;
+	var scale_height = 80;
+
+	var stateWidth =75;
+	var stateHeight = stateWidth;
+
+	// var mapHeight = function() {
+	// 			return 9*stateHeight - (margin_top + margin_bottom);
+	// 		}
+
+
+	// var mapWidth = function(){
+	// 			return 16*stateWidth - (margin_left + margin_right);
+	// 		}
+
+
+	mapHeight = 9*stateHeight - (margin_top + margin_bottom); // at most 9 states vertically
+	mapWidth = 16*stateWidth - (margin_left + margin_right); // 16 states across
+
+	var map = d3.select(".usmap")
+						.append("svg")
+						.attr("height", mapHeight)
+						.attr("width", mapWidth)
+
+	var TL_height = 50;
+	var TL_width = mapWidth;
+
+
+    var yearselectorCanvas = d3.select(".yearselector")
+    .append("svg")
+    .attr("width", mapWidth)
+    .attr("height", TL_height);
+
+    var usmapCanvas = d3.select(".usmap")
+    .append("svg")
+    .attr("width", mapWidth)
+    .attr("height", mapHeight);
+
+    var profile = d3.select(".usmap")
+    .append("img")
+
+
+    var colorScaleCanvas = d3.select(".color-scale")
+    .append("svg")
+    .attr("width", mapWidth)
+    .attr("height", scale_height)
+
+    var tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", .1)
+    .style("display", "none");
+
+
+    var usmapLabel = d3.select("#usmap-label")
+
+
+    // Reading the multiple data files simulataneously done with help from
+	// https://stackoverflow.com/questions/21842384/
+	//importing-data-from-multiple-csv-files-in-d3#comment33080827_21842647
+
+    var q = d3.queue();
+    q.defer(d3.csv, "data/yearwise-winner.csv");
+
+    for(var i = 0; (1940 + i) <= 2016; i = i+4){
+		var temp_src_string = "data/election-results-" + (1940+i).toString() + ".csv";
+		q.defer(d3.csv, temp_src_string);
+	}
+
+    q.await(function(err, winners) {
+      if (err) {
+        console.error(err);
+        return;
+      }
+
+      var mapXS = d3.scaleLinear().domain([0,16]).range([0, mapWidth]); 
+  
+      var mapYS = d3.scaleLinear().domain([0,9]).range([0, mapHeight]);
+   
+
+      var colorXSS = d3.scaleLinear().domain([-60,60]).range([0,mapWidth]);
+     
+
+      // I got the idea for this ugly piece of code from:
+    // https://www.reddit.com/r/javascript/comments/4z42z0/var_args_arrayprototypeslicecallarguments_the
+	// Essentially, allows us to treat the winners args as an array, slice it appropriately, and then generate 
+	// a scale so the nested array indexes will correspond to a meaningfull year
+
+	var resultsByYear = Array.prototype.slice.call(arguments, 3);
+	var yearIndexes = d3.scaleQuantize().domain([1940, 2016])
+										.range(resultsByYear.map(function(_, index) 
+										{return index;}));
+
+	var target_index = yearIndexes(1940);
+
+     var yearWinnerMap = new Map();
+	 for(var winner in winners){
+	 		var year = winners[winner].YEAR;
+	 		var party = winners[winner].PARTY;
+			yearWinnerMap.set(parseInt(year), party);
+	 }
+
+      var colorScale = d3.scaleLinear()
+      .domain([-60, -0, 0, 60])
+      .range(["#0014cc", "#4d73ff", "#ff4d4f", "#cc0700"]);
+
+
+       var drawStates = function(){
+        var result = resultsByYear[target_index];
+        var winner_party = yearWinnerMap.get((1940 + (4*target_index)));
+        if (winner_party == 'D'){
+        	winner_party = "Democrat";
+        }
+        if (winner_party == 'R'){
+        	winner_party = "Republican";
+        }
+        var winner_string = "<p>Winner in " + (1940 + (4*target_index)).toString() + ": " + winner_party + "</p>";
+        winner_string += "<p>Scroll Down To See Map!</p>";
+        usmapLabel.html(winner_string);
+        usmapLabel.html
+        var states = usmapCanvas.selectAll("g")
+        .data(result)
+        .enter()
+        .append("g")
+        var rectangles = states
+        .selectAll(".rect")
+        .data(function(d){ return [d];})
+        .enter()
+        .append("rect")
+        .attr("class", "rect")
+        .attr("stroke-width", "3px")
+        .attr("stroke", "black")
+        .attr("fill", function(d){
+          var winPercent = d['R_Percentage']-d['D_Percentage'];
+          return colorScale(winPercent);
+        })
+        .on("mouseover", function(d){
+          tooltip.style("opacity", .9)
+          		 .style("display", "block");
+          var html_string = "<p>" + d.State + "</p>" +
+          					"<p> EV: " + d['Total_EV'] + "</p>" +
+          					"<p>" + d['D_Nominee'] + ": " + d['D_Votes'] + "(" + d['D_Percentage'] + ")" + "</p>" +
+          					"<p>" + d['R_Nominee'] + ": " + d['R_Votes'] + "(" + d['R_Percentage'] + ")" + "</p>"
+
+
+          tooltip.html(html_string)
+          .style("left", (d3.event.pageX)+"px")
+          .style("top", (d3.event.pageY - 28)+"px");
+        })
+        // Text
+        .attr("x", function(d){
+        	var coords = STCM.get(d.State);
+  			try {
+  				var x = coords[0];
+        		return mapXS(x);
+  			} catch(err) {
+  				// pass
+  			} 
+        	
+        })
+        .attr("y", function(d){
+        	var coords = STCM.get(d.State);
+        	try {
+        		var y = coords[1];
+        		return mapYS(y);
+        	} catch(err) {
+        		//pass
+        	}
+        	
+        })
+        .attr("width", stateWidth)
+        .attr("height", stateWidth)
+        var abbrs = states
+        .selectAll(".st_abbr")
+        .data(function(d){return [d];})
+        .enter()
+        .append("text")
+        .attr("class", "st_abbr")
+        .attr("color", "white")
+        .attr("x", function(d){
+        	var coords = STCM.get(d.State);
+  			try {
+  				var x = coords[0];
+        		return 3.5 + mapXS(x);
+  			} catch(err) {
+  				// pass
+  			} 
+        })
+        .attr("y", function(d){
+        	var coords = STCM.get(d.State);
+        	try {
+        		var y = coords[1];
+        		return stateWidth/2 + mapYS(y);
+        	} catch(err) {
+        		//pass
+        	}
+        })
+        .text(function(d){
+        	var state_ev_string = d['Abbreviation'] + ": " + d['Total_EV'];
+        	return state_ev_string;
+    })
+
+
+      }
+      
+      var buildTimeLine = function() {
+      	var node_dist = TL_width / ((19) + 1);
+		var half_dist = node_dist / 2.0;
+
+		var yearselectorLine = yearselectorCanvas
+        .append("line")
+        .attr("class", "time-line-line")
+        .attr("x1", half_dist)
+        .attr("x2", mapWidth-half_dist)
+        .attr("y1", TL_height/2)
+        .attr("y2", TL_height/2)
+
+        var years = [];
+		for (var i = 0; (1940 + i) <= 2016; i = i+4){
+			years.push(1940 + i);
+		}
+
+
+        // var node_dist = mapWidth/(19)+ 1);
+        
+        var groups = yearselectorCanvas.selectAll("g")
+          .data(years)
+          .enter()
+          .append("g")
+
+        var year_labels = groups
+          .selectAll(".timeline-label")
+          .data(function(d){return [d];})
+          .enter()
+          .append("text")
+          .attr("class", "timeline-label")
+          .attr("x", function(y){
+            var val = 10 + node_dist*yearIndexes(y);
+            return val;
+          })
+          .attr("y", function(){
+          	return TL_height/2 + node_dist*2/5 + 20;
+          })
+          .text(function(y){return y});
+
+        var rects = groups
+          .selectAll(".rectYearSelector")
+          .data(function(d){return [d];})
+          .enter()
+          .append("rect")
+          .attr("class", function(y) {
+            if (yearIndexes(y) == target_index){
+            	return "rect selected"
+            } else return "rect";
+          })
+          .attr("fill", function(y){
+            if (yearWinnerMap.get(y) == "D") {
+              return "blue";
+            }
+            if (yearWinnerMap.get(y) == "R") {
+            	return "red";
+            }
+          })
+          .attr("x", function(y){
+            return half_dist + node_dist*yearIndexes(y);
+          })
+          .attr("y", TL_height/2)
+          .attr("height", 20)
+          .attr("width", 30)
+          .on("click", function(y){
+            target_index = yearIndexes(y);
+            generate();
+          })
+
+        
+      } // END QUEUE
+
+      var buildScale = function() {
+        var binScale = []
+        for (var i = -60; i < 0; i+= 10) {
+          binScale.push(i);
+        }
+        for (var i = 0; i < 60; i+= 10) {
+          binScale.push(i);
+        }
+
+        var ticks = colorScaleCanvas.selectAll("g")
+        .data(binScale)
+        .enter()
+        .append("g")
+        var rectangles = ticks
+        .selectAll(".scaleBin")
+        .data(function(d){return [d];})
+        .enter()
+        .append("rect")
+        .attr("class", "scaleBin")
+        .attr("fill", function(d){return colorScale(d);})
+        .attr("x", function(d){return colorXSS(d)})
+        .attr("y", 0)
+        .attr("width", mapWidth/10)
+        .attr("height", 30)
+        var label = ticks
+        .selectAll(".binLabel")
+        .data(function(d){return [d];})
+        .enter()
+        .append("text")
+        .attr("class", "binLabel")
+        .attr("x", function(d){return 8+colorXSS(d)})
+        .attr("y", 60)
+        .text(function(d){
+        	var bin_string = "[" + d.toString() + ", " + (d+10).toString() + "]";
+        	return bin_string;
+
+        })
+
+      }
+
+     
+      var generate = function() {
+
+
+        yearselectorCanvas.selectAll("*").remove();
+        colorScaleCanvas.selectAll("*").remove();
+        usmapCanvas.selectAll("*").remove();
+        drawStates();
+      	buildTimeLine();
+      	buildScale();
+        
+      }
+
+      generate();
+
+    });
+
+    </script>
+  </body>
+  </html>

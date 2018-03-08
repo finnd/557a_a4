@@ -1,0 +1,50 @@
+.st_abbr {
+  font-size: 16px;
+  font-family: sans-serif;
+  fill: white;
+  text-align: center;
+}
+.time-line-line {
+  stroke-width:2px;
+  stroke:black;
+}
+.selected {
+  stroke-width: 3;
+  stroke: black;
+}
+.timelinelabel {
+  position: absolute;
+  font-size: 16px;
+  font-family: sans-serif;
+  fill: black;
+  text-align: center;
+}
+
+div.tooltip {
+  position: absolute;
+  text-align: left;
+  padding: 4px;
+  font: 14px sans-serif;
+  background: #c6b3ff;
+  border: 2px dash black;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.state-name {
+  font-size: 24px;
+}
+
+
+.scaleBin {
+  stroke-width: 3;
+  stroke: black;
+}
+
+.binLabel {
+  font-size: 24px;
+  text-decoration: underline;
+}
+
+.rect {
+	border: 2px solid grey;
+}
